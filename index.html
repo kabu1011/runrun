@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>10人爬樓梯隨機抽題</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background: #f0f2f5; padding: 20px; color: #333; }
+        .container { max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        h2 { color: #2c3e50; margin-bottom: 20px; }
+        
+        .input-area { margin-bottom: 20px; text-align: left; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #555; }
+        textarea { width: 100%; height: 150px; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; resize: vertical; }
+        
+        .controls { margin: 20px 0; }
+        button { background: #28a745; color: white; border: none; padding: 12px 30px; font-size: 18px; border-radius: 50px; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        button:hover { background: #218838; transform: translateY(-2px); }
+        button:active { transform: translateY(0); }
+
+        table { width: 100%; margin-top: 25px; border-collapse: collapse; overflow: hidden; border-radius: 10px; }
+        th, td { border: 1px solid #eee; padding: 12px; text-align: center; }
+        th { background: #007bff; color: white; }
+        tr:nth-child(even) { background: #f9f9f9; }
+        .q-number { color: #e67e22; font-weight: bold; font-size: 1.1em; }
+        .error { color: #dc3545; font-weight: bold; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🪜 學生爬樓梯抽題系統</h2>
+    
+    <div class="input-area">
+        <label for="nameList">請輸入學生姓名 (每行一個名字，共10位)：</label>
+        <textarea id="nameList" placeholder="例如：&#10;王小明&#10;李大華&#10;張美麗..."></textarea>
+    </div>
+
+    <div class="controls">
+        <button onclick="draw()">🎲 開始隨機爬樓梯</button>
+    </div>
+
+    <div id="errorMsg" class="error"></div>
+    <div id="result"></div>
+</div>
+
+<script>
+function draw() {
+    const errorMsg = document.getElementById("errorMsg");
+    const resultDiv = document.getElementById("result");
+    errorMsg.innerText = ""; // 清除錯誤訊息
+
+    // 取得名字並過濾掉空白行
+    let names = document.getElementById("nameList").value.split('\n')
+                .map(n => n.trim())
+                .filter(n => n !== "");
+
+    if (names.length < 10) {
+        errorMsg.innerText = "❌ 請輸入至少 10 位學生的名字！";
+        resultDiv.innerHTML = "";
+        return;
+    }
+
+    // 只取前 10 位
+    let finalNames = names.slice(0, 10);
+    
+    // 準備題號 1-10
+    let questions = Array.from({length: 10}, (_, i) => i + 1);
+    
+    // Fisher-Yates 洗牌演算法 (打亂題號)
+    for (let i = questions.length - 1; i > 0; i--) {
+        let j = Math.floor(Math.random() * (i + 1));
+        [questions[i], questions[j]] = [questions[j], questions[i]];
+    }
+
+    // 產生表格
+    let html = "<table><thead><tr><th>序號</th><th>學生姓名</th><th>抽到題號</th></tr></thead><tbody>";
+    finalNames.forEach((name, index) => {
+        html += `<tr>
+                    <td>${index + 1}</td>
+                    <td><strong>${name}</strong></td>
+                    <td class="q-number">第 ${questions[index]} 題</td>
+                 </tr>`;
+    });
+    html += "</tbody></table>";
+    
+    resultDiv.innerHTML = html;
+}
+</script>
+
+</body>
+</html>
