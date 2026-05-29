@@ -3,96 +3,178 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🪜 精準鬼腳圖抽籤 (支援10人)</title>
-    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
+    <title>🪜 10人精準鬼腳圖系統</title>
     <style>
-        :root {
-            --paper-bg: #fdfdf5; /* 類似紙張顏色 */
-            --ink-color: #444; /* 墨水顏色 */
-            --path-color: #d9534f; /* 行走時的路徑顏色 */
-            --lane-count: 10;
-        }
-        body {
-            font-family: 'M PLUS Rounded 1c', sans-serif;
-            background-color: var(--paper-bg);
-            color: var(--ink-color);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px;
-            margin: 0;
-        }
-        h2 { text-align: center; margin-bottom: 20px; color: #333; }
-
-        /* 設定區域 */
-        .controls { width: 90%; max-width: 800px; background: rgba(255, 255, 255, 0.9); padding: 15px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); margin-bottom: 20px; text-align: center; }
-        textarea { width: 100%; height: 60px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; resize: none; margin-bottom: 10px; }
-        button { background: #6366f1; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 1rem; font-weight: bold; margin: 0 5px; transition: 0.2s; }
-        button:hover { background: #4f46e5; }
-        button:disabled { background: #cbd5e1; cursor: not-allowed; }
-
-        /* 遊戲主區域 */
-        #game-board {
-            width: 100%;
-            max-width: 900px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-            position: relative;
-            display: none;
-        }
-
-        /* 頂部玩家區域 */
-        #players-row { display: flex; width: 100%; justify-content: space-around; position: relative; z-index: 2; margin-bottom: 5px;}
-        .player-item { flex: 1; text-align: center; position: relative; }
-        .player-item .face { font-size: 20px; border: 2px solid var(--ink-color); border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; margin: 0 auto; background: white; cursor: pointer; }
-        .player-item .name { font-size: 12px; margin-top: 5px; background: white; padding: 2px; border-radius: 3px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90%; margin-left: auto; margin-right: auto;}
-
-        /* 底部分配結果區域 */
-        #results-row { display: flex; width: 100%; justify-content: space-around; margin-top: 10px; position: relative; z-index: 2;}
-        .result-item { flex: 1; text-align: center; position: relative; font-size: 14px; color: #d9534f; font-weight: bold; font-family: sans-serif;}
-
-        /* 鬼腳圖核心區域 (線條與標記) */
-        #lines-container { height: 450px; position: relative; width: 100%; z-index: 1; margin-top: 10px; }
+        :root { --bg: #fdfaf5; --line: #444; --path: #ff4757; }
+        body { font-family: sans-serif; background: var(--bg); display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .box { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); width: 95%; max-width: 800px; text-align: center; }
+        textarea { width: 90%; height: 50px; margin-bottom: 10px; border: 1px solid #ddd; padding: 10px; border-radius: 5px; }
         
-        /* 垂直線 */
-        .vertical-line { position: absolute; width: 2px; background: var(--ink-color); top: 0; bottom: 0; }
-        /* 橫線 */
-        .horizontal-line { position: absolute; height: 2px; background: var(--ink-color); border-radius: 1px; }
-
-        /* 行走的路徑標記 */
-        #player-marker { position: absolute; width: 12px; height: 12px; background: var(--path-color); border-radius: 50%; z-index: 10; top: 0; transform: translate(-50%, -50%); opacity: 0; }
+        /* 畫布區域 */
+        #game-container { position: relative; margin-top: 20px; width: 100%; height: 550px; overflow: hidden; display: none; }
+        .faces-row, .results-row { display: flex; justify-content: space-between; width: 100%; position: absolute; left: 0; z-index: 10; }
+        .faces-row { top: 0; }
+        .results-row { bottom: 0; }
         
-        /* 動態繪製的路徑段 */
-        .path-segment { position: absolute; background: var(--path-color); height: 2px; z-index: 9; border-radius: 1px; }
+        .node { width: 40px; text-align: center; flex: 1; position: relative; }
+        .face-btn { width: 30px; height: 30px; border: 2px solid var(--line); border-radius: 50%; background: white; cursor: pointer; display: inline-block; line-height: 30px; font-size: 20px; transition: 0.2s; }
+        .face-btn:hover { transform: scale(1.2); background: #eee; }
+        .name-tag { font-size: 11px; display: block; margin-top: 2px; color: #666; white-space: nowrap; }
+        .result-tag { font-weight: bold; color: #ff4757; font-size: 14px; opacity: 0.2; transition: 0.5s; }
+        .result-tag.active { opacity: 1; transform: scale(1.2); }
+
+        /* 線條繪製區 */
+        #canvas-svg { position: absolute; top: 50px; left: 0; width: 100%; height: 450px; z-index: 5; }
+        .v-line { stroke: var(--line); stroke-width: 2; }
+        .h-line { stroke: var(--line); stroke-width: 2; }
+        .trace-path { fill: none; stroke: var(--path); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; transition: stroke-dashoffset 0.1s linear; }
+        
+        button#main-btn { background: #6c5ce7; color: white; border: none; padding: 10px 25px; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
     </style>
 </head>
 <body>
 
-<div class="controls">
-    <h2>🪜 精準鬼腳圖抽籤系統</h2>
-    <p style="font-size: 0.9rem; color: #666; margin-bottom: 10px;">請輸入 10 個名字（每行或空格分開）：</p>
-    <textarea id="namesInput">學生1 學生2 學生3 學生4 學生5 學生6 學生7 學生8 學生9 學生10</textarea>
+<div class="box">
+    <h2>🪜 10人精準鬼腳圖 (爬樓梯)</h2>
+    <textarea id="nameInput">學生01 學生02 學生03 學生04 學生05 學生06 學生07 學生08 學生09 學生10</textarea>
     <br>
-    <button id="generateBtn" onclick="generateBoard()">產生精準圖形</button>
-</div>
+    <button id="main-btn" onclick="initGame()">產生新圖形</button>
 
-<div id="game-board">
-    <div id="players-row">
-        </div>
-    <div id="lines-container">
-        <div id="path-segments-container"></div>
-        <div id="player-marker"></div>
+    <div id="game-container">
+        <div class="faces-row" id="faces"></div>
+        <svg id="canvas-svg"></svg>
+        <div class="results-row" id="results"></div>
     </div>
-    <div id="results-row">
-        </div>
 </div>
 
 <script>
-// 設定參數
-const LANES = 10;
-const HEIGHT = 450;
-const ROWS = 15; // 橫線的可能層數
+    let config = { lanes: 10, rows: 12, width: 0, height: 450 };
+    let horizontalBars = []; // 存儲 {row, lane}
 
-let allLines = []; // 存儲生成的橫線數據http://googleusercontent.com/image_generation_content/0
+    function initGame() {
+        const input = document.getElementById('nameInput').value.trim();
+        const names = input.split(/[\s\n]+/).filter(n => n !== "").slice(0, 10);
+        if (names.length < 10) return alert("請輸入 10 個名字");
+
+        const container = document.getElementById('game-container');
+        const svg = document.getElementById('canvas-svg');
+        container.style.display = 'block';
+        svg.innerHTML = '';
+        document.getElementById('faces').innerHTML = '';
+        document.getElementById('results').innerHTML = '';
+        horizontalBars = [];
+
+        config.width = svg.clientWidth;
+        const stepX = config.width / config.lanes;
+        const stepY = config.height / (config.rows + 1);
+
+        // 1. 產生隨機橫線 (精準邏輯：同一層同位置不重複)
+        for (let r = 1; r <= config.rows; r++) {
+            for (let l = 0; l < config.lanes - 1; l++) {
+                if (Math.random() > 0.6) {
+                    // 檢查左邊是否已有線，避免重疊變成交點
+                    if (!horizontalBars.find(b => b.row === r && (b.lane === l-1 || b.lane === l))) {
+                        horizontalBars.push({ row: r, lane: l });
+                    }
+                }
+            }
+        }
+
+        // 2. 繪製線條
+        for (let i = 0; i < config.lanes; i++) {
+            const x = (i * stepX) + (stepX / 2);
+            // 垂直線
+            const vLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            vLine.setAttribute("x1", x); vLine.setAttribute("y1", 0);
+            vLine.setAttribute("x2", x); vLine.setAttribute("y2", config.height);
+            vLine.classList.add("v-line");
+            svg.appendChild(vLine);
+
+            // 頂部頭像
+            const faceDiv = document.createElement('div');
+            faceDiv.className = 'node';
+            faceDiv.innerHTML = `<div class="face-btn" onclick="trace(${i})">😀</div><span class="name-tag">${names[i]}</span>`;
+            document.getElementById('faces').appendChild(faceDiv);
+
+            // 底部題號
+            const resDiv = document.createElement('div');
+            resDiv.className = 'node';
+            resDiv.innerHTML = `<span class="result-tag" id="res-${i}">第 ${i+1} 題</span>`;
+            document.getElementById('results').appendChild(resDiv);
+        }
+
+        // 繪製橫線
+        horizontalBars.forEach(bar => {
+            const x1 = (bar.lane * stepX) + (stepX / 2);
+            const x2 = ((bar.lane + 1) * stepX) + (stepX / 2);
+            const y = bar.row * stepY;
+            const hLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            hLine.setAttribute("x1", x1); hLine.setAttribute("y1", y);
+            hLine.setAttribute("x2", x2); hLine.setAttribute("y2", y);
+            hLine.classList.add("h-line");
+            svg.appendChild(hLine);
+        });
+    }
+
+    async function trace(startLane) {
+        const svg = document.getElementById('canvas-svg');
+        const oldPath = document.getElementById('active-path');
+        if (oldPath) oldPath.remove();
+
+        const stepX = config.width / config.lanes;
+        const stepY = config.height / (config.rows + 1);
+        
+        let currLane = startLane;
+        let points = [[(startLane * stepX) + (stepX / 2), 0]];
+
+        // 模擬向下走的邏輯
+        for (let r = 1; r <= config.rows + 1; r++) {
+            const y = r * stepY;
+            // 檢查這層有沒有橫線
+            const barRight = horizontalBars.find(b => b.row === r && b.lane === currLane);
+            const barLeft = horizontalBars.find(b => b.row === r && b.lane === currLane - 1);
+
+            if (barRight) {
+                points.push([(currLane * stepX) + (stepX / 2), y]); // 走到路口
+                currLane++;
+                points.push([(currLane * stepX) + (stepX / 2), y]); // 轉彎
+            } else if (barLeft) {
+                points.push([(currLane * stepX) + (stepX / 2), y]); // 走到路口
+                currLane--;
+                points.push([(currLane * stepX) + (stepX / 2), y]); // 轉彎
+            }
+        }
+        points.push([(currLane * stepX) + (stepX / 2), config.height]); // 到底部
+
+        // 繪製動畫路徑
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+        const pointsStr = points.map(p => p.join(',')).join(' ');
+        path.setAttribute("points", pointsStr);
+        path.setAttribute("id", "active-path");
+        path.classList.add("trace-path");
+        
+        // 動畫效果
+        svg.appendChild(path);
+        const length = path.getTotalLength();
+        path.style.strokeDasharray = length;
+        path.style.strokeDashoffset = length;
+        
+        // 強制重繪
+        path.getBoundingClientRect();
+        path.style.transition = "stroke-dashoffset 2s ease-in-out";
+        path.style.strokeDashoffset = "0";
+
+        // 結束後亮起結果
+        setTimeout(() => {
+            document.querySelectorAll('.result-tag').forEach(t => t.classList.remove('active'));
+            document.getElementById(`res-${currLane}`).classList.add('active');
+        }, 2100);
+    }
+
+    // 初始化
+    window.onload = () => { if(window.innerWidth > 0) initGame(); };
+</script>
+
+</body>
+</html>
