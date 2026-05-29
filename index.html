@@ -3,274 +3,96 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🪜 鬼腳圖抽籤系統</title>
-    <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
+    <title>🪜 精準鬼腳圖抽籤 (支援10人)</title>
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        /* 視覺風格設定 (手繪感) */
         :root {
-            --bg-color: #fdfaf5; /* 類似紙張顏色 */
-            --ink-color: #333; /* 墨水顏色 */
-            --path-color: #d9534f; /* 走動時的路徑顏色 */
-            --marker-size: 15px; /* 走動標記大小 */
+            --paper-bg: #fdfdf5; /* 類似紙張顏色 */
+            --ink-color: #444; /* 墨水顏色 */
+            --path-color: #d9534f; /* 行走時的路徑顏色 */
+            --lane-count: 10;
         }
         body {
             font-family: 'M PLUS Rounded 1c', sans-serif;
-            background-color: var(--bg-color);
+            background-color: var(--paper-bg);
             color: var(--ink-color);
             display: flex;
             flex-direction: column;
             align-items: center;
             padding: 20px;
             margin: 0;
-            overflow-x: hidden;
         }
-        .container {
+        h2 { text-align: center; margin-bottom: 20px; color: #333; }
+
+        /* 設定區域 */
+        .controls { width: 90%; max-width: 800px; background: rgba(255, 255, 255, 0.9); padding: 15px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); margin-bottom: 20px; text-align: center; }
+        textarea { width: 100%; height: 60px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; resize: none; margin-bottom: 10px; }
+        button { background: #6366f1; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 1rem; font-weight: bold; margin: 0 5px; transition: 0.2s; }
+        button:hover { background: #4f46e5; }
+        button:disabled { background: #cbd5e1; cursor: not-allowed; }
+
+        /* 遊戲主區域 */
+        #game-board {
             width: 100%;
-            max-width: 600px;
-            background: rgba(255, 255, 255, 0.8);
-            padding: 30px;
+            max-width: 900px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
             border-radius: 15px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.1);
             position: relative;
+            display: none;
         }
-        h2 { text-align: center; font-family: 'Architects Daughter', cursive; margin-bottom: 20px; }
 
-        /* 設定區域 */
-        .input-container { margin-bottom: 20px; text-align: center; }
-        .input-container label { display: block; margin-bottom: 8px; font-weight: bold; color: #555; }
-        #namesInput { width: 90%; height: 60px; padding: 10px; border: 2px solid #ddd; border-radius: 8px; font-size: 14px; box-sizing: border-box; resize: none; margin-bottom: 10px; }
-        #resultsInput { width: 90%; padding: 10px; border: 2px solid #ddd; border-radius: 8px; font-size: 14px; box-sizing: border-box; margin-bottom: 10px; }
-        .btn-group { text-align: center; }
-        button { font-family: 'Architects Daughter', cursive; background: #6366f1; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 1rem; transition: 0.3s; font-weight: bold; margin: 0 5px; }
-        button:hover { background: #4f46e5; transform: scale(1.05); }
-        button:disabled { background: #cbd5e1; cursor: not-allowed; }
+        /* 頂部玩家區域 */
+        #players-row { display: flex; width: 100%; justify-content: space-around; position: relative; z-index: 2; margin-bottom: 5px;}
+        .player-item { flex: 1; text-align: center; position: relative; }
+        .player-item .face { font-size: 20px; border: 2px solid var(--ink-color); border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; margin: 0 auto; background: white; cursor: pointer; }
+        .player-item .name { font-size: 12px; margin-top: 5px; background: white; padding: 2px; border-radius: 3px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90%; margin-left: auto; margin-right: auto;}
 
-        /* 遊戲區域 */
-        #game-area { margin-top: 30px; border: 3px solid #666; padding: 20px; border-radius: 10px; position: relative; width: 100%; }
-        #players-row, #results-row { display: flex; justify-content: space-around; width: 100%; position: relative; z-index: 2; }
-        .player-item, .result-item { text-align: center; position: relative; flex: 1; }
+        /* 底部分配結果區域 */
+        #results-row { display: flex; width: 100%; justify-content: space-around; margin-top: 10px; position: relative; z-index: 2;}
+        .result-item { flex: 1; text-align: center; position: relative; font-size: 14px; color: #d9534f; font-weight: bold; font-family: sans-serif;}
+
+        /* 鬼腳圖核心區域 (線條與標記) */
+        #lines-container { height: 450px; position: relative; width: 100%; z-index: 1; margin-top: 10px; }
         
-        /* 玩家和結果標籤 */
-        .player-item .face { font-size: 24px; border: 2px solid var(--ink-color); border-radius: 50%; width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; margin: 0 auto; background: white; cursor: pointer; transition: transform 0.2s; }
-        .player-item .face:hover { transform: scale(1.1); box-shadow: 0 0 10px rgba(0,0,0,0.2); }
-        .player-item .name, .result-item .label { font-size: 14px; margin-top: 5px; background: white; padding: 2px 5px; border-radius: 3px; font-family: 'Architects Daughter', cursive; border: 1px solid #ccc; display: inline-block; max-width: 60px; overflow: hidden; white-space: nowrap; }
-        .result-item .label { color: #d9534f; font-weight: bold; border-color: #d9534f; }
-
-        /* 線條區域 */
-        #lines-board { height: 400px; position: relative; width: 100%; z-index: 1; }
-        .vertical-line { position: absolute; width: 2px; background: var(--ink-color); top: 20px; bottom: 0; }
+        /* 垂直線 */
+        .vertical-line { position: absolute; width: 2px; background: var(--ink-color); top: 0; bottom: 0; }
+        /* 橫線 */
         .horizontal-line { position: absolute; height: 2px; background: var(--ink-color); border-radius: 1px; }
 
-        /* 走動路徑標標記 */
-        .path-segment { position: absolute; background: var(--path-color); height: 2px; z-index: 10; border-radius: 1px; transition: all 0.1s linear; }
-        .player-marker { position: absolute; width: var(--marker-size); height: var(--marker-size); background: var(--path-color); border-radius: 50%; z-index: 11; top: 0; transform: translateX(-50%); opacity: 0; transition: opacity 0.2s, top 0.1s linear, left 0.1s linear; }
-
-        /* 隱藏結果直到路徑走完 */
-        .result-item .label.hidden { color: #ccc; border-color: #eee; }
+        /* 行走的路徑標記 */
+        #player-marker { position: absolute; width: 12px; height: 12px; background: var(--path-color); border-radius: 50%; z-index: 10; top: 0; transform: translate(-50%, -50%); opacity: 0; }
+        
+        /* 動態繪製的路徑段 */
+        .path-segment { position: absolute; background: var(--path-color); height: 2px; z-index: 9; border-radius: 1px; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>🪜 鬼腳圖抽籤系統</h2>
-    <p style="font-size: 0.9rem; color: #64748b; text-align: center;">請輸入 5 個名字和結果（空格分開）：</p>
-    
-    <div class="input-container">
-        <textarea id="namesInput">學生1 學生2 學生3 學生4 學生5</textarea>
-        <input type="text" id="resultsInput" value="勹 ㄆ ㄇ ㄈ ㄉ" placeholder="對應結果，例如：1 2 3 4 5">
-    </div>
-    
-    <div class="btn-group">
-        <button id="resetBtn" onclick="resetGame()">產生新圖形</button>
-    </div>
+<div class="controls">
+    <h2>🪜 精準鬼腳圖抽籤系統</h2>
+    <p style="font-size: 0.9rem; color: #666; margin-bottom: 10px;">請輸入 10 個名字（每行或空格分開）：</p>
+    <textarea id="namesInput">學生1 學生2 學生3 學生4 學生5 學生6 學生7 學生8 學生9 學生10</textarea>
+    <br>
+    <button id="generateBtn" onclick="generateBoard()">產生精準圖形</button>
+</div>
 
-    <div id="game-area" style="display:none">
-        <div id="players-row">
-            </div>
-        <div id="lines-board">
-            <div id="path-segments-container"></div>
-            <div id="player-marker" class="player-marker"></div>
+<div id="game-board">
+    <div id="players-row">
         </div>
-        <div id="results-row">
-            </div>
+    <div id="lines-container">
+        <div id="path-segments-container"></div>
+        <div id="player-marker"></div>
     </div>
+    <div id="results-row">
+        </div>
 </div>
 
 <script>
-// 初始化遊戲
-let lanesData = [];
-let lanesResultsMap = {};
-let faces = ['😀', '😀', '😞', '😞', '😀']; // 模仿圖形的臉
+// 設定參數
+const LANES = 10;
+const HEIGHT = 450;
+const ROWS = 15; // 橫線的可能層數
 
-function getInputs() {
-    const names = document.getElementById('namesInput').value.trim().split(/[\s\n]+/).filter(n => n !== "");
-    const results = document.getElementById('resultsInput').value.trim().split(/[\s]+/).filter(r => r !== "");
-    
-    if (names.length < 5) { alert("請輸入至少 5 位學生的名字！"); return null; }
-    if (results.length < 5) { alert("請輸入至少 5 個結果！"); return null; }
-    
-    return { names: names.slice(0, 5), results: results.slice(0, 5) };
-}
-
-// 產生新的鬼腳圖結構
-function resetGame() {
-    const inputs = getInputs();
-    if (!inputs) return;
-    
-    // 清除舊的內容
-    document.getElementById('game-area').style.display = 'block';
-    document.getElementById('players-row').innerHTML = '';
-    document.getElementById('lines-board').innerHTML = '<div id="path-segments-container"></div><div id="player-marker" class="player-marker"></div>';
-    document.getElementById('results-row').innerHTML = '';
-    
-    // 1. 產生玩家頭像和名字
-    inputs.names.forEach((name, i) => {
-        const item = document.createElement('div');
-        item.className = 'player-item';
-        item.id = `player-${i}`;
-        item.innerHTML = `
-            <div class="face" onclick="startClimbing(${i})">${faces[i]}</div>
-            <div class="name">${name}</div>
-        `;
-        document.getElementById('players-row').appendChild(item);
-    });
-
-    // 2. 產生結果標籤 (勹, ㄆ, ...)
-    inputs.results.forEach((res, i) => {
-        const item = document.createElement('div');
-        item.className = 'result-item';
-        item.innerHTML = `<div class="label hidden" id="result-label-${i}">${res}</div>`;
-        document.getElementById('results-row').appendChild(item);
-    });
-
-    // 3. 產生垂直線
-    for (let i = 0; i < 5; i++) {
-        const line = document.createElement('div');
-        line.className = 'vertical-line';
-        line.style.left = `calc(${i * 20 + 10}%)`;
-        document.getElementById('lines-board').appendChild(line);
-    }
-
-    // 4. 產生隨機橫線 (鬼腳圖核心結構)
-    lanesData = []; // 存儲線條連接數據
-    lanesResultsMap = {}; // 存儲起點對終點的映射
-
-    // 預先計算起點
-    const finalOrder = Array.from({length: 5}, (_, i) => i).sort(() => Math.random() - 0.5);
-
-    // 在每一層隨機放置橫線
-    for (let row = 0; row < 10; row++) { // 10 層橫線
-        for (let lane = 0; lane < 4; lane++) { // 4 個橫向連接
-            if (Math.random() < 0.4) { // 40% 的機率在該位置產生橫線
-                lanesData.push({ row, startLane: lane, endLane: lane + 1 });
-            }
-        }
-    }
-
-    // 繪製橫線
-    lanesData.forEach(lineData => {
-        const hLine = document.createElement('div');
-        hLine.className = 'horizontal-line';
-        hLine.style.top = `calc(${lineData.row * 10 + 5}%)`; // 每層 10% 的高度
-        hLine.style.left = `calc(${lineData.startLane * 20 + 10}%)`;
-        hLine.style.width = `calc(20%)`; // 跨越 20% 的寬度
-        document.getElementById('lines-board').appendChild(hLine);
-    });
-}
-
-// 動態走鬼腳圖
-async function startClimbing(startLane) {
-    // 禁用按鈕
-    document.getElementById('resetBtn').disabled = true;
-    document.querySelectorAll('.player-item .face').forEach(f => f.style.cursor = 'wait');
-
-    const pathContainer = document.getElementById('path-segments-container');
-    const marker = document.getElementById('player-marker');
-    pathContainer.innerHTML = '';
-    
-    marker.style.opacity = '1';
-    marker.style.left = `calc(${startLane * 20 + 10}%)`;
-    marker.style.top = `20px`; // 起點在頂部
-
-    let currentLane = startLane;
-    const sortedLines = lanesData.slice().sort((a, b) => a.row - b.row);
-    const resultId = `result-label-${startLane}`;
-
-    // 從頂部開始向下移動，遇到橫線轉彎
-    for (let row = 0; row < 10; row++) {
-        // 下一步的高度
-        const targetTop = 20 + row * 40 + 20; // 計算垂直線段的終點
-        
-        // 繪製垂直段
-        await drawSegment(startLane, marker.style.top, startLane, targetTop + 'px');
-        
-        // 尋找此層是否存在連接目前軌道的橫線
-        const connection = sortedLines.find(l => l.row === row && (l.startLane === currentLane || l.endLane === currentLane));
-        
-        if (connection) {
-            // 決定要向左還是向右轉
-            const newLane = (connection.startLane === currentLane) ? connection.endLane : connection.startLane;
-            // 繪製橫線段
-            await drawSegment(currentLane, marker.style.top, newLane, marker.style.top);
-            currentLane = newLane;
-        }
-    }
-
-    // 最後一段到底部
-    await drawSegment(currentLane, marker.style.top, currentLane, '420px');
-    
-    // 顯示對應的結果
-    document.getElementById(`result-label-${currentLane}`).classList.remove('hidden');
-    
-    // 恢復狀態
-    document.getElementById('resetBtn').disabled = false;
-    document.querySelectorAll('.player-item .face').forEach(f => f.style.cursor = 'pointer');
-}
-
-// 用於繪製一段線並移動標記
-function drawSegment(startL, startT, endL, endT) {
-    return new Promise(resolve => {
-        const seg = document.createElement('div');
-        seg.className = 'path-segment';
-        seg.style.left = `calc(${startL * 20 + 10}%)`;
-        seg.style.top = startT;
-        seg.style.width = `2px`; // 預設為垂直線
-        seg.style.height = `2px`;
-        document.getElementById('path-segments-container').appendChild(seg);
-        
-        const marker = document.getElementById('player-marker');
-        
-        if (startT !== endT) { // 垂直移動
-            const height = parseInt(endT) - parseInt(startT);
-            seg.style.height = height + 'px';
-            setTimeout(() => {
-                marker.style.top = endT;
-                setTimeout(resolve, 100);
-            }, 50);
-        } else { // 橫向移動
-            const leftDiff = endL - startL;
-            const startX = startL * 20 + 10;
-            const endX = endL * 20 + 10;
-            const width = Math.abs(endX - startX);
-            
-            seg.style.width = `calc(${width}%)`;
-            if (leftDiff < 0) { // 向左移
-                seg.style.left = `calc(${endX}%)`;
-            } else { // 向右移
-                seg.style.left = `calc(${startX}%)`;
-            }
-            
-            setTimeout(() => {
-                marker.style.left = `calc(${endL * 20 + 10}%)`;
-                setTimeout(resolve, 100);
-            }, 50);
-        }
-    });
-}
-
-// 首次載入
-window.onload = resetGame;
-</script>
-
-</body>
-</html>
+let allLines = []; // 存儲生成的橫線數據http://googleusercontent.com/image_generation_content/0
