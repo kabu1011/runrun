@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🪜 萬用自訂隨機爬樓梯系統 (終極隨機版)</title>
+    <title>🪜 萬用自訂隨機爬樓梯系統 (雙向反查版)</title>
     <style>
         :root { --bg: #fdfaf5; --line: #444; --path: #ff4757; }
         body { font-family: sans-serif; background: var(--bg); display: flex; flex-direction: column; align-items: center; padding: 20px; }
@@ -20,13 +20,17 @@
         .results-row { bottom: 10px; }
         
         .node { position: absolute; transform: translateX(-50%); width: 80px; text-align: center; }
+        
+        /* 上方按鈕樣式 */
         .face-btn { width: 34px; height: 34px; border: 2px solid var(--line); border-radius: 50%; background: white; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 20px; transition: 0.2s; margin: 0 auto; }
-        .face-btn:hover { transform: scale(1.2); background: #f0f0f0; }
-        .face-btn.used { background: #ddd; cursor: not-allowed; opacity: 0.6; }
+        .face-btn:hover { transform: scale(1.2); background: #fff0f2; border-color: var(--path); }
+        .face-btn.active-node { background: #6c5ce7; color: white; border-color: #6c5ce7; transform: scale(1.2); box-shadow: 0 4px 10px rgba(108,92,231,0.4); }
         .name-tag { font-size: 12px; display: block; margin-top: 4px; font-weight: bold; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         
-        .result-tag { font-size: 13px; font-weight: bold; padding: 6px 10px; border: 2px dashed #ccc; border-radius: 6px; display: inline-block; background: #fff; transition: 0.3s; white-space: nowrap; max-width: 75px; overflow: hidden; text-overflow: ellipsis; }
-        .result-tag.active { background: #ff4757; color: white; border-style: solid; border-color: #ff4757; transform: scale(1.15); box-shadow: 0 4px 10px rgba(255,71,87,0.3); }
+        /* 下方結果樣式 (改成手勢 cursor: pointer 提示可點擊反查) */
+        .result-tag { font-size: 13px; font-weight: bold; padding: 6px 10px; border: 2px dashed #ccc; border-radius: 6px; display: inline-block; background: #fff; transition: 0.3s; white-space: nowrap; max-width: 75px; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+        .result-tag:hover { border-color: var(--path); background: #fff0f2; transform: scale(1.05); }
+        .result-tag.active-node { background: #ff4757; color: white; border-style: solid; border-color: #ff4757; transform: scale(1.15); box-shadow: 0 4px 10px rgba(255,71,87,0.3); }
 
         svg { position: absolute; top: 70px; left: 0; width: 100%; height: 530px; z-index: 5; }
         .v-line { stroke: #bbb; stroke-width: 2; }
@@ -41,16 +45,16 @@
 <body>
 
 <div class="box">
-    <h2>🪜 萬用自訂隨機爬樓梯系統 (終極不重複偏誤版)</h2>
+    <h2>🪜 萬用隨機爬樓梯系統 (無限重複＋雙向反查版)</h2>
 
     <div class="input-group">
         <div class="input-item">
             <label>🙋‍♂️ 1. 請輸入學生姓名 (每行一個)：</label>
-            <textarea id="nameInput" placeholder="請輸入名字，一列一個">同學A&#10;同學B&#10;同學C&#10;同學D&#10;同學E</textarea>
+            <textarea id="nameInput" placeholder="請輸入名字">同學A&#10;同學B&#10;同學C&#10;同學D&#10;同學E</textarea>
         </div>
         <div class="input-item">
             <label>🎁 2. 請輸入下方對應結果 (每行一個)：</label>
-            <textarea id="resInput" placeholder="請輸入結果，一列一個">Y&#10;N&#10;N&#10;N&#10;N</textarea>
+            <textarea id="resInput" placeholder="請輸入結果">Y&#10;N&#10;N&#10;N&#10;N</textarea>
         </div>
     </div>
 
@@ -78,19 +82,18 @@
         
         if (names.length < 2) return alert("至少需要輸入 2 個名字喔！");
         if (names.length !== results.length) {
-            return alert(`數量不匹配！目前有 ${names.length} 個名字，但有 ${results.length} 個結果。請讓兩邊行數一樣多。`);
+            return alert(`數量不匹配！請讓兩邊行數一樣多。`);
         }
 
-        // 【核心修正 Step 1】秘密進行 Fisher-Yates 100% 公平洗牌，先決定哪位「同學」該得到哪個「答案」
+        // 隨機公平洗牌
         let secretDestinations = [...results];
         for (let i = secretDestinations.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [secretDestinations[i], secretDestinations[j]] = [secretDestinations[j], secretDestinations[i]];
         }
-        // 此時：names[i] 命中 secretDestinations[i] 的機率是絕對純隨機、無偏誤的。
 
         config.lanes = names.length;
-        config.rows = Math.max(16, config.lanes * 4); // 動態層數
+        config.rows = Math.max(16, config.lanes * 4);
 
         const container = document.getElementById('game-container');
         const svg = document.getElementById('canvas-svg');
@@ -109,7 +112,7 @@
         const stepX = config.width / config.lanes;
         const stepY = config.height / (config.rows + 1);
 
-        // 生成隨機樓梯橫線
+        // 生成隨機橫線
         for (let r = 1; r <= config.rows; r++) {
             for (let l = 0; l < config.lanes - 1; l++) {
                 if (Math.random() > 0.5) { 
@@ -122,42 +125,37 @@
             }
         }
 
-        // 【核心修正 Step 2】逆向工程：計算各起點依此樓梯移動後，最終會掉在哪個「底部軌道」
+        // 逆向工程計算底部標籤掛法
         let bottomLabels = new Array(config.lanes);
         for (let i = 0; i < config.lanes; i++) {
             let currLane = i;
             for (let r = 1; r <= config.rows; r++) {
-                const barRight = horizontalBars.find(b => b.row === r && b.lane === currLane);
-                const barLeft = horizontalBars.find(b => b.row === r && b.lane === currLane - 1);
-                if (barRight) currLane++;
-                else if (barLeft) currLane--;
+                if (horizontalBars.find(b => b.row === r && b.lane === currLane)) currLane++;
+                else if (horizontalBars.find(b => b.row === r && b.lane === currLane - 1)) currLane--;
             }
-            // 起點 i 的人最終掉在 currLane 軌道
-            // 我們把預先指派給起點 i 的答案，放到底部第 currLane 個顯示框中！
             bottomLabels[currLane] = secretDestinations[i];
         }
 
-        // 渲染畫面
+        // 渲染 UI
         for (let i = 0; i < config.lanes; i++) {
             const x = (i * stepX) + (stepX / 2);
             svg.appendChild(createSVG('line', { x1: x, y1: 0, x2: x, y2: config.height, class: 'v-line' }));
 
-            // 頂部同學
+            // 頂部學生 (可點擊正查)
             const faceDiv = document.createElement('div');
             faceDiv.className = 'node';
             faceDiv.style.left = `${x}px`;
-            faceDiv.innerHTML = `<div class="face-btn" id="face-${i}" onclick="startRunning(${i})">🏃</div><span class="name-tag" title="${names[i]}">${names[i]}</span>`;
+            faceDiv.innerHTML = `<div class="face-btn" id="face-${i}" onclick="startTrace(${i}, false)">🏃</div><span class="name-tag" title="${names[i]}">${names[i]}</span>`;
             document.getElementById('faces').appendChild(faceDiv);
 
-            // 底部結果 (已被精準逆向放置)
+            // 底部結果 (新增 onclick 支援反查！)
             const resDiv = document.createElement('div');
             resDiv.className = 'node';
             resDiv.style.left = `${x}px`;
-            resDiv.innerHTML = `<span class="result-tag" id="res-${i}" title="${bottomLabels[i]}">${bottomLabels[i]}</span>`;
+            resDiv.innerHTML = `<span class="result-tag" id="res-${i}" onclick="startTrace(${i}, true)" title="${bottomLabels[i]}">${bottomLabels[i]}</span>`;
             document.getElementById('results').appendChild(resDiv);
         }
 
-        // 繪製橫線
         horizontalBars.forEach(bar => {
             const x1 = (bar.lane * stepX) + (stepX / 2);
             const x2 = ((bar.lane + 1) * stepX) + (stepX / 2);
@@ -166,43 +164,58 @@
         });
     }
 
-    function startRunning(startLane) {
-        if (isRunning) return;
-        const faceBtn = document.getElementById(`face-${startLane}`);
-        if (faceBtn.classList.contains('used')) return;
-
+    // 核心雙向尋路與動畫演算法
+    function startTrace(startLane, isReverse = false) {
+        if (isRunning) return; // 正在跑動中防止重複點擊
         isRunning = true;
-        faceBtn.classList.add('used');
-        faceBtn.innerText = "✖";
+
+        // 清除舊的亮燈與路徑
+        document.querySelectorAll('.face-btn, .result-tag').forEach(el => el.classList.remove('active-node'));
+        const oldPath = document.getElementById('active-path');
+        if (oldPath) oldPath.remove();
+
+        // 亮起點擊的起點
+        if (isReverse) {
+            document.getElementById(`res-${startLane}`).classList.add('active-node');
+        } else {
+            document.getElementById(`face-${startLane}`).classList.add('active-node');
+        }
 
         const svg = document.getElementById('canvas-svg');
         const runner = document.getElementById('runner');
         const stepX = config.width / config.lanes;
         const stepY = config.height / (config.rows + 1);
-        
-        const oldPath = document.getElementById('active-path');
-        if (oldPath) oldPath.remove();
 
         let currLane = startLane;
-        let points = [[(startLane * stepX) + (stepX / 2), 0]];
+        let points = [];
 
-        for (let r = 1; r <= config.rows; r++) {
-            const y = r * stepY;
-            const barRight = horizontalBars.find(b => b.row === r && b.lane === currLane);
-            const barLeft = horizontalBars.find(b => b.row === r && b.lane === currLane - 1);
-
-            if (barRight) {
-                points.push([(currLane * stepX) + (stepX / 2), y]);
-                currLane++;
-                points.push([(currLane * stepX) + (stepX / 2), y]);
-            } else if (barLeft) {
-                points.push([(currLane * stepX) + (stepX / 2), y]);
-                currLane--;
-                points.push([(currLane * stepX) + (stepX / 2), y]);
+        if (!isReverse) {
+            // 【正查：由上往下】
+            points.push([(startLane * stepX) + (stepX / 2), 0]);
+            for (let r = 1; r <= config.rows; r++) {
+                const y = r * stepY;
+                if (horizontalBars.find(b => b.row === r && b.lane === currLane)) {
+                    points.push([(currLane * stepX) + (stepX / 2), y]); currLane++; points.push([(currLane * stepX) + (stepX / 2), y]);
+                } else if (horizontalBars.find(b => b.row === r && b.lane === currLane - 1)) {
+                    points.push([(currLane * stepX) + (stepX / 2), y]); currLane--; points.push([(currLane * stepX) + (stepX / 2), y]);
+                }
             }
+            points.push([(currLane * stepX) + (stepX / 2), config.height]);
+        } else {
+            // 【反查：由下往上】
+            points.push([(startLane * stepX) + (stepX / 2), config.height]);
+            for (let r = config.rows; r >= 1; r--) {
+                const y = r * stepY;
+                if (horizontalBars.find(b => b.row === r && b.lane === currLane)) {
+                    points.push([(currLane * stepX) + (stepX / 2), y]); currLane++; points.push([(currLane * stepX) + (stepX / 2), y]);
+                } else if (horizontalBars.find(b => b.row === r && b.lane === currLane - 1)) {
+                    points.push([(currLane * stepX) + (stepX / 2), y]); currLane--; points.push([(currLane * stepX) + (stepX / 2), y]);
+                }
+            }
+            points.push([(currLane * stepX) + (stepX / 2), 0]);
         }
-        points.push([(currLane * stepX) + (stepX / 2), config.height]);
 
+        // 繪製與計算動畫
         const path = createSVG('polyline', {
             points: points.map(p => p.join(',')).join(' '),
             id: 'active-path',
@@ -216,7 +229,7 @@
         
         runner.style.display = 'block';
         let startTime = null;
-        const duration = 1600; 
+        const duration = 1400; 
 
         function animate(timestamp) {
             if (!startTime) startTime = timestamp;
@@ -233,8 +246,12 @@
             if (progress < 1) {
                 requestAnimationFrame(animate);
             } else {
-                document.querySelectorAll('.result-tag').forEach(t => t.classList.remove('active'));
-                document.getElementById(`res-${currLane}`).classList.add('active');
+                // 抵達終點，將對應的目標亮燈
+                if (!isReverse) {
+                    document.getElementById(`res-${currLane}`).classList.add('active-node');
+                } else {
+                    document.getElementById(`face-${currLane}`).classList.add('active-node');
+                }
                 isRunning = false;
             }
         }
