@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🪜 萬用自訂隨機爬樓梯系統 (完美隨機版)</title>
+    <title>🪜 萬用自訂隨機爬樓梯系統 (終極隨機版)</title>
     <style>
         :root { --bg: #fdfaf5; --line: #444; --path: #ff4757; }
         body { font-family: sans-serif; background: var(--bg); display: flex; flex-direction: column; align-items: center; padding: 20px; }
@@ -41,16 +41,16 @@
 <body>
 
 <div class="box">
-    <h2>🪜 萬用自訂隨機爬樓梯系統 (完美打亂版)</h2>
+    <h2>🪜 萬用自訂隨機爬樓梯系統 (終極不重複偏誤版)</h2>
 
     <div class="input-group">
         <div class="input-item">
             <label>🙋‍♂️ 1. 請輸入學生姓名 (每行一個)：</label>
-            <textarea id="nameInput" placeholder="請輸入名字，一列一個">同學A&#10;同學B&#10;同學C&#10;同學D&#10;同學E&#10;同學F&#10;同學G&#10;同學H&#10;同學I&#10;同學J</textarea>
+            <textarea id="nameInput" placeholder="請輸入名字，一列一個">同學A&#10;同學B&#10;同學C&#10;同學D&#10;同學E</textarea>
         </div>
         <div class="input-item">
             <label>🎁 2. 請輸入下方對應結果 (每行一個)：</label>
-            <textarea id="resInput" placeholder="請輸入結果，一列一個">第01題&#10;第02題&#10;第03題&#10;第04題&#10;第05題&#10;第06題&#10;第07題&#10;第08題&#10;第09題&#10;第10題</textarea>
+            <textarea id="resInput" placeholder="請輸入結果，一列一個">Y&#10;N&#10;N&#10;N&#10;N</textarea>
         </div>
     </div>
 
@@ -66,7 +66,7 @@
 </div>
 
 <script>
-    let config = { lanes: 5, rows: 24, height: 530, width: 0 }; 
+    let config = { lanes: 5, rows: 20, height: 530, width: 0 }; 
     let horizontalBars = [];
     let isRunning = false;
 
@@ -81,14 +81,16 @@
             return alert(`數量不匹配！目前有 ${names.length} 個名字，但有 ${results.length} 個結果。請讓兩邊行數一樣多。`);
         }
 
-        // 【核心修正 1】在分配到各排之前，先將結果陣列進行完美的隨機大洗牌 (Fisher-Yates Shuffle)
-        for (let i = results.length - 1; i > 0; i--) {
+        // 【核心修正 Step 1】秘密進行 Fisher-Yates 100% 公平洗牌，先決定哪位「同學」該得到哪個「答案」
+        let secretDestinations = [...results];
+        for (let i = secretDestinations.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
-            [results[i], results[j]] = [results[j], results[i]];
+            [secretDestinations[i], secretDestinations[j]] = [secretDestinations[j], secretDestinations[i]];
         }
+        // 此時：names[i] 命中 secretDestinations[i] 的機率是絕對純隨機、無偏誤的。
 
         config.lanes = names.length;
-        config.rows = Math.max(20, config.lanes * 4); // 增加層數讓路線更糾結
+        config.rows = Math.max(16, config.lanes * 4); // 動態層數
 
         const container = document.getElementById('game-container');
         const svg = document.getElementById('canvas-svg');
@@ -107,14 +109,12 @@
         const stepX = config.width / config.lanes;
         const stepY = config.height / (config.rows + 1);
 
-        // 【核心修正 2】精準橫線生成，禁止連續同位置出現，逼迫紅球大幅度向外擴散
+        // 生成隨機樓梯橫線
         for (let r = 1; r <= config.rows; r++) {
             for (let l = 0; l < config.lanes - 1; l++) {
-                if (Math.random() > 0.45) { 
+                if (Math.random() > 0.5) { 
                     const leftSameRow = horizontalBars.find(b => b.row === r && b.lane === l - 1);
                     const identicalAbove = horizontalBars.find(b => b.row === r - 1 && b.lane === l);
-                    
-                    // 同一層左右不重疊，且「上一層同位置不能有線」防止無效彈回
                     if (!leftSameRow && !identicalAbove) {
                         horizontalBars.push({ row: r, lane: l });
                     }
@@ -122,24 +122,42 @@
             }
         }
 
+        // 【核心修正 Step 2】逆向工程：計算各起點依此樓梯移動後，最終會掉在哪個「底部軌道」
+        let bottomLabels = new Array(config.lanes);
+        for (let i = 0; i < config.lanes; i++) {
+            let currLane = i;
+            for (let r = 1; r <= config.rows; r++) {
+                const barRight = horizontalBars.find(b => b.row === r && b.lane === currLane);
+                const barLeft = horizontalBars.find(b => b.row === r && b.lane === currLane - 1);
+                if (barRight) currLane++;
+                else if (barLeft) currLane--;
+            }
+            // 起點 i 的人最終掉在 currLane 軌道
+            // 我們把預先指派給起點 i 的答案，放到底部第 currLane 個顯示框中！
+            bottomLabels[currLane] = secretDestinations[i];
+        }
+
         // 渲染畫面
         for (let i = 0; i < config.lanes; i++) {
             const x = (i * stepX) + (stepX / 2);
             svg.appendChild(createSVG('line', { x1: x, y1: 0, x2: x, y2: config.height, class: 'v-line' }));
 
+            // 頂部同學
             const faceDiv = document.createElement('div');
             faceDiv.className = 'node';
             faceDiv.style.left = `${x}px`;
             faceDiv.innerHTML = `<div class="face-btn" id="face-${i}" onclick="startRunning(${i})">🏃</div><span class="name-tag" title="${names[i]}">${names[i]}</span>`;
             document.getElementById('faces').appendChild(faceDiv);
 
+            // 底部結果 (已被精準逆向放置)
             const resDiv = document.createElement('div');
             resDiv.className = 'node';
             resDiv.style.left = `${x}px`;
-            resDiv.innerHTML = `<span class="result-tag" id="res-${i}" title="${results[i]}">${results[i]}</span>`;
+            resDiv.innerHTML = `<span class="result-tag" id="res-${i}" title="${bottomLabels[i]}">${bottomLabels[i]}</span>`;
             document.getElementById('results').appendChild(resDiv);
         }
 
+        // 繪製橫線
         horizontalBars.forEach(bar => {
             const x1 = (bar.lane * stepX) + (stepX / 2);
             const x2 = ((bar.lane + 1) * stepX) + (stepX / 2);
